@@ -1,0 +1,41 @@
+@import url(../../Source/Widgets/widgets.css);
+@import url(../../Source/Widgets/lighter.css);
+
+html {
+    height: 100%;
+}
+
+body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    overflow: hidden;
+    padding: 0;
+    background: #000;
+}
+
+.fullWindow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    overflow: hidden;
+    padding: 0;
+    font-family: sans-serif;
+}
+
+.loadingIndicator {
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin-top: -95px;
+    margin-left: -95px;
+    width: 190px;
+    height: 190px;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-image: url(Images/pixels.gif);
+}

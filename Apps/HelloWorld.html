@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Use correct character set. -->
+    <meta charset="utf-8">
+    <!-- Tell IE to use the latest, best version. -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <!-- Make the application on mobile take up the full browser screen and disable user scaling. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+    <title>Hello World!</title>
+    <script src="../Build/Cesium/Cesium.js"></script>
+    <script src="CesiumViewer/ControllersConstructor.js"></script>
+    <style>
+        @import url(../Build/Cesium/Widgets/widgets.css);
+        html, body, #cesiumContainer {
+            width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+        }
+
+        .toolbar-left {
+            display: block;
+            position: absolute;
+            top: 95%;
+            left: 95%;
+        }
+
+        #canvasL {
+            position: absolute;
+        }
+
+        #canvasR {
+            position: absolute;
+            left : 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="mainDiv">
+        <canvas id="canvasL"></canvas>
+        <canvas id="canvasR"></canvas>
+    </div>
+
+    <div class="toolbar-left">
+        <button id="myButton">Enter VR</button>
+    </div>
+
+    <script>
+        var canvasL = document.getElementById('canvasL');
+        var canvasR = document.getElementById('canvasR');
+        var btn = document.getElementById("myButton");
+
+        var vrDisplay;
+
+        var draw;
+        var drawVR;
+
+        var width = screen.width;
+        var height = screen.height;
+
+        var sceneL = CreateScene(canvasL, width, height);
+        var sceneR = CreateScene(canvasR, width, height);
+
+        var clock = new Cesium.Clock();
+
+        canvasL.width = width;
+
+        drawScene();
+
+        if(navigator.getVRDisplays){
+            console.log("WebVR supported");
+
+            navigator.getVRDisplays().then(function(displays){
+                if (displays.length > 0) {
+                    console.log('Display found');
+
+                    btn.addEventListener('click', function() {
+                        if (btn.textContent === "Enter VR") {
+                            vrDisplay.requestPresent([{ source: canvasL }]).then(function() {
+                                console.log("Presenting to WebVR display");
+
+                                var leftEye = vrDisplay.getEyeParameters('left');
+                                var rightEye = vrDisplay.getEyeParameters('right');
+
+                                canvasL.width = Math.max(leftEye.renderWidth, rightEye.renderWidth);
+                                canvasL.height = Math.max(leftEye.renderHeight, rightEye.renderHeight);
+
+                                canvasR.width = Math.max(leftEye.renderWidth, rightEye.renderWidth);
+                                canvasR.height = Math.max(leftEye.renderHeight, rightEye.renderHeight);
+                                canvasR.style.left = Math.max(leftEye.renderWidth, rightEye.renderWidth)/2 + "px";
+
+                                cameraL.frustum.xOffset = leftEye.offset*10;
+                                cameraR.frustum.xOffset = rightEye.offset*10;
+
+                                window.cancelAnimationFrame(draw);
+                                drawSceneVR();
+
+                                btn.textContent = "Exit VR"
+                            });
+                        } else {
+                            vrDisplay.exitPresent();
+                            console.log("Stopped presenting to WebVR display");
+
+                            btn.textContent = "Enter VR";
+
+                            vrDisplay.cancelAnimationFrame(drawVR);
+                            drawScene();
+                        }
+                    });
+                }
+            });
+        } else {
+            console.log("WebVR nor supported")
+        }
+
+        var orientation = new Cesium.Quaternion();
+        var rotation = new Cesium.Matrix3();
+
+        var cameraL = sceneL.camera;
+        var cameraR = sceneR.camera;
+        var savedCamera = Cesium.Camera.clone(mainCamera);
+
+        clock.onTick.addEventListener(function(clock){
+            if(btn.textContent === "Exit VR"){
+                var frameData = new VRFrameData();
+                window.vrDisplay.getFrameData(frameData);
+
+                var pose = frameData.pose;
+
+                orientation = Cesium.Quaternion.unpack(pose.orientation, 0);
+
+                var pitch = orientation.x;
+                var yaw = orientation.y;
+                var roll = orientation.z;
+
+                orientation.x = 0.8*yaw + 0.2*roll;
+                orientation.y = pitch;
+                orientation.z = 0.6*yaw - 0.4*roll;
+
+                rotation = Cesium.Matrix3.fromQuaternion(orientation);
+                Cesium.Matrix3.multiplyByVector(rotation, savedCamera.direction, cameraL.direction);
+                Cesium.Matrix3.multiplyByVector(rotation, savedCamera.up, cameraL.up);
+                Cesium.Cartesian3.cross(cameraL.direction, cameraL.up, cameraL.right);
+
+                Cesium.Cartesian3.normalize(cameraL.direction, cameraL.direction);
+                Cesium.Cartesian3.normalize(cameraL.up, cameraL.up);
+                Cesium.Cartesian3.normalize(cameraL.right, cameraL.right);
+
+                cameraR.right = cameraL.right;
+                cameraR.up = cameraL.up;
+                cameraR.direction = cameraL.direction;
+            }
+        });
+
+
+        function CreateScene (canvas, width, height) {
+            canvas.width = width*0.5;
+            canvas.height = height;
+
+            scene = new Cesium.Scene({
+                canvas : canvas
+            });
+
+            scene.globe = new Cesium.Globe();
+
+            var imageryProvider = new Cesium.BingMapsImageryProvider({
+                url : 'https://dev.virtualearth.net',
+                key : 'AqmQSr81reh0-L3fcAl0gknxWjXIREflrF35OnVkDtDvN_xcbTPj8spaVSbvY7AV'
+            });
+
+            scene.imageryLayers.addImageryProvider(imageryProvider);
+
+            scene.terrainprovider = Cesium.createWorldTerrain();
+
+            return scene;
+        }
+
+        function drawScene(){
+            draw = window.requestAnimationFrame(drawScene);
+
+            sceneL.initializeFrame();
+            sceneL.render();
+
+            clock.tick();
+        }
+
+        function drawSceneVR(){
+            vrDisplay.requestAnimationFrame(drawSceneVR);
+
+            sceneL.initializeFrame();
+            sceneL.render();
+            sceneR.initializeFrame();
+            sceneR.render();
+
+            clock.tick();
+        }
+
+    </script>
+</body>
+</html>
