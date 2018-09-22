@@ -102,7 +102,7 @@ define([
         }
         //>>includeEnd('debug');
 
-        this._key = BingMapsApi.getKey(options.key);
+        this._key = BingMapsApi.getKey('AqmQSr81reh0-L3fcAl0gknxWjXIREflrF35OnVkDtDvN_xcbTPj8spaVSbvY7AV');
         this._keyErrorCredit = BingMapsApi.getErrorCredit(options.key);
         this._resource = Resource.createIfNeeded(options.url);
         this._tileProtocol = options.tileProtocol;
